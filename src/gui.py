@@ -11,6 +11,8 @@ from tkinter import messagebox
 import json
 from tkintertable import TableCanvas, TableModel, Tables
 import time
+import datetime
+import requests
 
 try:
     import Tkinter as tk
@@ -32,6 +34,9 @@ def vp_start_gui():
     root = tk.Tk()
     top = Toplevel1 (root)
     gui_support.init(root, top)
+    now = datetime.datetime.now()
+    Toplevel1.initialTime = now.strftime("%H:%M:%S")
+    
     root.mainloop()
 
 w = None
@@ -56,15 +61,21 @@ class Toplevel1:
     #Ab hier fängt die eigentliche GUI Logik an!
     
     nodeURL = 'https://nodes.thetangle.org:443'
-    address ='HQHF9PZJJVWZPOXHIHYULTECHZEDEVIZEWVRYGWCUNQPHLLPKNXAZU9GMS9QQEXNIJVQ9KHBXOUJOS9Q9'
-    seed = 'SEED9GOES9HERE9999999999999999999999999999999999999999999999999999999999999999999'
+    targetAddress ='HQHF9PZJJVWZPOXHIHYULTECHZEDEVIZEWVRYGWCUNQPHLLPKNXAZU9GMS9QQEXNIJVQ9KHBXOUJOS9Q9'
+    fleetAddress =''
     entered = False
     enteredEnemy = False
     targetRow = ''
     targetCol = ''
     shipCount = 5
+    initialTime =''
 
     #Enter und Exit checken, ob die Maus im Enemy Fleet Frame ist. Ansonsten wird auch der Mouseclick im OurFleet Frame übernommen.
+    
+    def timer(self):
+        now = datetime.datetime.now()
+        dt_string = now.strftime("%d-%m-%Y,%H:%M:%S")
+        return dt_string
     
     def enterOwn(self,event):
         self.entered=True
@@ -85,6 +96,49 @@ class Toplevel1:
         self.enteredEnemy=False
         print(self.enteredEnemy)
         
+    def checkStatus(self):
+        logEntry='Checking for incoming missiles...\n'
+        self.Log.configure(state='normal')
+        self.Log.insert(tk.INSERT, logEntry)
+        self.Log.configure(state='disabled')
+        command = {
+          "command": "findTransactions",
+          "addresses": [self.addressEntry.get()]
+        }
+        stringified = json.dumps(command)
+        headers = {
+            'content-type': 'application/json',
+            'X-IOTA-API-Version': '1'
+        }
+        try:
+            r = requests.post(url=self.nodeURL,data=stringified,headers=headers)
+            jsonData = json.loads(r.text)
+            command2 = {
+              "command": "getTrytes",
+              "hashes": jsonData['hashes']
+            }
+        except:
+            messagebox.showinfo("Error", "The address is invalid!")
+        
+        stringified2 = json.dumps(command2)
+        
+        re = requests.post(url=self.nodeURL,data=stringified2,headers=headers)
+        jsonData2 = json.loads(re.content)
+        for item in jsonData2['trytes']:
+            trytes = item
+            tryteString = TryteString(trytes)
+            message = tryteString.decode(errors='ignore', strip_padding=False)
+            head= message.split(';')
+            content = head[0].split(',')
+            #print(self.initialTime)
+            t = datetime.datetime.now()
+            s = t.strftime("%d-%m-%Y")
+            for i in content:
+                wow = i
+                #print(wow+" WOW")
+                #print (str(content)+" Content")
+                if wow == s:
+                    print(str(content))
         
     def saveConnectionSettings(self):
 #         if self.nodeURLEntry.get()!='':
@@ -177,10 +231,11 @@ class Toplevel1:
     def prepareShot(self,row,col):
         try:
             #seed =  self.seed
-            targetAddress = self.address
+            targetAddress = self.targetAddress
             api = Iota(self.nodeURL)
             closing = ';'
-            content = str(row+","+col+closing)
+            fireTime = self.timer()
+            content = str(row+","+col+","+fireTime+closing)
             self.sendTransaction(targetAddress,content,api,row,col)
         except  Exception as e:
             print("Error preparing TX")
@@ -423,7 +478,7 @@ class Toplevel1:
         self.NCoordinates.configure(selectforeground="black")
 
         self.Fire = tk.Button(self.Labelframe4,command=self.fire)
-        self.Fire.place(relx=0.498, rely=0.103, height=164, width=287
+        self.Fire.place(relx=0.698, rely=0.256, height=94, width=157
                 , bordermode='ignore')
         self.Fire.configure(activebackground="#ececec")
         self.Fire.configure(activeforeground="#000000")
@@ -448,8 +503,21 @@ class Toplevel1:
         self.Coordinates.configure(highlightcolor="black")
         self.Coordinates.configure(text='''Target Coordinates''')
 
+        self.Check = tk.Button(self.Labelframe4,command=self.checkStatus)
+        self.Check.place(relx=0.432, rely=0.256, height=94, width=147
+                , bordermode='ignore')
+        self.Check.configure(activebackground="#ececec")
+        self.Check.configure(activeforeground="#000000")
+        self.Check.configure(background="#d9d9d9")
+        self.Check.configure(disabledforeground="#a3a3a3")
+        self.Check.configure(foreground="#000000")
+        self.Check.configure(highlightbackground="#d9d9d9")
+        self.Check.configure(highlightcolor="black")
+        self.Check.configure(pady="0")
+        self.Check.configure(text='''Check''')
+
         self.seedEntry = tk.Entry(self.TNotebook1_t2)
-        self.seedEntry.place(relx=0.09, rely=0.145,height=30, relwidth=0.799)
+        self.seedEntry.place(relx=0.09, rely=0.145,height=30, relwidth=0.424)
         self.seedEntry.configure(background="white")
         self.seedEntry.configure(disabledforeground="#a3a3a3")
         self.seedEntry.configure(font="TkFixedFont")
@@ -471,31 +539,32 @@ class Toplevel1:
         self.Seed.configure(highlightcolor="black")
         self.Seed.configure(text='''Seed''')
 
-        self.addressEntry = tk.Entry(self.TNotebook1_t2)
-        self.addressEntry.place(relx=0.09, rely=0.253,height=30, relwidth=0.799)
-        self.addressEntry.configure(background="white")
-        self.addressEntry.configure(disabledforeground="#a3a3a3")
-        self.addressEntry.configure(font="TkFixedFont")
-        self.addressEntry.configure(foreground="#000000")
-        self.addressEntry.configure(highlightbackground="#d9d9d9")
-        self.addressEntry.configure(highlightcolor="black")
-        self.addressEntry.configure(insertbackground="black")
-        self.addressEntry.configure(selectbackground="#c4c4c4")
-        self.addressEntry.configure(selectforeground="black")
+        self.targetAddressEntry = tk.Entry(self.TNotebook1_t2)
+        self.targetAddressEntry.place(relx=0.09, rely=0.253, height=30
+                , relwidth=0.424)
+        self.targetAddressEntry.configure(background="white")
+        self.targetAddressEntry.configure(disabledforeground="#a3a3a3")
+        self.targetAddressEntry.configure(font="TkFixedFont")
+        self.targetAddressEntry.configure(foreground="#000000")
+        self.targetAddressEntry.configure(highlightbackground="#d9d9d9")
+        self.targetAddressEntry.configure(highlightcolor="black")
+        self.targetAddressEntry.configure(insertbackground="black")
+        self.targetAddressEntry.configure(selectbackground="#c4c4c4")
+        self.targetAddressEntry.configure(selectforeground="black")
 
-        self.Address = tk.Label(self.TNotebook1_t2)
-        self.Address.place(relx=0.09, rely=0.217, height=21, width=48)
-        self.Address.configure(activebackground="#f9f9f9")
-        self.Address.configure(activeforeground="black")
-        self.Address.configure(background="#d9d9d9")
-        self.Address.configure(disabledforeground="#a3a3a3")
-        self.Address.configure(foreground="#000000")
-        self.Address.configure(highlightbackground="#d9d9d9")
-        self.Address.configure(highlightcolor="black")
-        self.Address.configure(text='''Address''')
+        self.TargetAddress = tk.Label(self.TNotebook1_t2)
+        self.TargetAddress.place(relx=0.09, rely=0.217, height=21, width=88)
+        self.TargetAddress.configure(activebackground="#f9f9f9")
+        self.TargetAddress.configure(activeforeground="black")
+        self.TargetAddress.configure(background="#d9d9d9")
+        self.TargetAddress.configure(disabledforeground="#a3a3a3")
+        self.TargetAddress.configure(foreground="#000000")
+        self.TargetAddress.configure(highlightbackground="#d9d9d9")
+        self.TargetAddress.configure(highlightcolor="black")
+        self.TargetAddress.configure(text='''Target Address''')
 
         self.nodeURLEntry = tk.Entry(self.TNotebook1_t2)
-        self.nodeURLEntry.place(relx=0.09, rely=0.361,height=30, relwidth=0.183)
+        self.nodeURLEntry.place(relx=0.09, rely=0.47,height=30, relwidth=0.183)
         self.nodeURLEntry.configure(background="white")
         self.nodeURLEntry.configure(disabledforeground="#a3a3a3")
         self.nodeURLEntry.configure(font="TkFixedFont")
@@ -507,7 +576,7 @@ class Toplevel1:
         self.nodeURLEntry.configure(selectforeground="black")
 
         self.NodeURL = tk.Label(self.TNotebook1_t2)
-        self.NodeURL.place(relx=0.09, rely=0.337, height=20, width=58)
+        self.NodeURL.place(relx=0.09, rely=0.434, height=20, width=58)
         self.NodeURL.configure(activebackground="#f9f9f9")
         self.NodeURL.configure(activeforeground="black")
         self.NodeURL.configure(background="#d9d9d9")
@@ -517,11 +586,12 @@ class Toplevel1:
         self.NodeURL.configure(highlightcolor="black")
         self.NodeURL.configure(text='''Node URL''')
 
-        self.Connect = tk.Button(self.TNotebook1_t2, command=self.saveConnectionSettings)
-        self.Connect.place(relx=0.293, rely=0.361, height=34, width=87)
+        self.Connect = tk.Button(self.TNotebook1_t2)
+        self.Connect.place(relx=0.293, rely=0.47, height=34, width=87)
         self.Connect.configure(activebackground="#ececec")
         self.Connect.configure(activeforeground="#000000")
         self.Connect.configure(background="#d9d9d9")
+        self.Connect.configure(cursor="fleur")
         self.Connect.configure(disabledforeground="#a3a3a3")
         self.Connect.configure(foreground="#000000")
         self.Connect.configure(highlightbackground="#d9d9d9")
@@ -530,7 +600,7 @@ class Toplevel1:
         self.Connect.configure(text='''Connect''')
 
         self.netEntry = tk.Entry(self.TNotebook1_t2)
-        self.netEntry.place(relx=0.09, rely=0.458,height=70, relwidth=0.266)
+        self.netEntry.place(relx=0.09, rely=0.554,height=70, relwidth=0.266)
         self.netEntry.configure(background="white")
         self.netEntry.configure(disabledforeground="#a3a3a3")
         self.netEntry.configure(font="TkFixedFont")
@@ -541,18 +611,44 @@ class Toplevel1:
         self.netEntry.configure(selectbackground="#c4c4c4")
         self.netEntry.configure(selectforeground="black")
 
-        self.Label1 = tk.Label(self.TNotebook1_t2)
-        self.Label1.place(relx=0.09, rely=0.422, height=21, width=86)
-        self.Label1.configure(activebackground="#f9f9f9")
-        self.Label1.configure(activeforeground="black")
-        self.Label1.configure(background="#d9d9d9")
-        self.Label1.configure(disabledforeground="#a3a3a3")
-        self.Label1.configure(foreground="#000000")
-        self.Label1.configure(highlightbackground="#d9d9d9")
-        self.Label1.configure(highlightcolor="black")
-        self.Label1.configure(text='''Network Status''')
-        
-        
+        self.NetStatus = tk.Label(self.TNotebook1_t2)
+        self.NetStatus.place(relx=0.09, rely=0.518, height=21, width=86)
+        self.NetStatus.configure(activebackground="#f9f9f9")
+        self.NetStatus.configure(activeforeground="black")
+        self.NetStatus.configure(background="#d9d9d9")
+        self.NetStatus.configure(disabledforeground="#a3a3a3")
+        self.NetStatus.configure(foreground="#000000")
+        self.NetStatus.configure(highlightbackground="#d9d9d9")
+        self.NetStatus.configure(highlightcolor="black")
+        self.NetStatus.configure(text='''Network Status''')
+
+        self.addressEntry = tk.Entry(self.TNotebook1_t2)
+        self.addressEntry.place(relx=0.09, rely=0.361,height=30, relwidth=0.424)
+        self.addressEntry.configure(background="white")
+        self.addressEntry.configure(disabledforeground="#a3a3a3")
+        self.addressEntry.configure(font="TkFixedFont")
+        self.addressEntry.configure(foreground="#000000")
+        self.addressEntry.configure(insertbackground="black")
+
+        self.Address = tk.Label(self.TNotebook1_t2)
+        self.Address.place(relx=0.09, rely=0.325, height=20, width=54)
+        self.Address.configure(background="#d9d9d9")
+        self.Address.configure(disabledforeground="#a3a3a3")
+        self.Address.configure(foreground="#000000")
+        self.Address.configure(text='''Address''')
+
+        self.Save = tk.Button(self.TNotebook1_t2)
+        self.Save.place(relx=0.563, rely=0.241, height=54, width=117)
+        self.Save.configure(activebackground="#ececec")
+        self.Save.configure(activeforeground="#000000")
+        self.Save.configure(background="#d9d9d9")
+        self.Save.configure(disabledforeground="#a3a3a3")
+        self.Save.configure(foreground="#000000")
+        self.Save.configure(highlightbackground="#d9d9d9")
+        self.Save.configure(highlightcolor="black")
+        self.Save.configure(pady="0")
+        self.Save.configure(text='''Save''')
+
 
 class AutoScroll(object):
     '''Configure the scrollbars for a widget.'''
@@ -668,6 +764,7 @@ def _on_shiftmouse(event, widget):
 
 if __name__ == '__main__':
     vp_start_gui()
+    
 
 
 
