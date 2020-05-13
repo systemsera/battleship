@@ -13,6 +13,7 @@ from tkintertable import TableCanvas, TableModel, Tables
 import time
 import datetime
 import requests
+from pandas.tseries.offsets import Hour
 
 try:
     import Tkinter as tk
@@ -77,82 +78,90 @@ class Toplevel1:
         dt_string = now.strftime("%d-%m-%Y,%H:%M:%S")
         return dt_string
     
+    
     def enterOwn(self,event):
         self.entered=True
-        print(self.entered)
         
         
     def exitOwn(self,event):
         self.entered=False
-        print(self.entered)
     
     
     def enterEnemy(self,event):
         self.enteredEnemy=True
-        print(self.enteredEnemy)
         
         
     def exitEnemy(self,event):
         self.enteredEnemy=False
-        print(self.enteredEnemy)
         
-    def checkStatus(self):
-        logEntry='Checking for incoming missiles...\n'
+    def updateLog(self,logEntry):
         self.Log.configure(state='normal')
         self.Log.insert(tk.INSERT, logEntry)
         self.Log.configure(state='disabled')
-        command = {
+        
+        
+    def checkStatus(self):
+        today = datetime.datetime.now()
+        todayCheck = today.strftime("%d-%m-%Y")
+        initialTime = self.initialTime
+        logEntry='Checking for incoming missiles...\n'
+        self.updateLog(logEntry)
+        txCommand = {
           "command": "findTransactions",
           "addresses": [self.addressEntry.get()]
         }
-        stringified = json.dumps(command)
+        findTx = json.dumps(txCommand)
         headers = {
             'content-type': 'application/json',
             'X-IOTA-API-Version': '1'
         }
         try:
-            r = requests.post(url=self.nodeURL,data=stringified,headers=headers)
-            jsonData = json.loads(r.text)
-            command2 = {
+            requestFindTx = requests.post(url=self.nodeURL,data=findTx,headers=headers)
+            jsonDataTx = json.loads(requestFindTx.text)
+            tryteCommand = {
               "command": "getTrytes",
-              "hashes": jsonData['hashes']
+              "hashes": jsonDataTx['hashes']
             }
         except:
             messagebox.showinfo("Error", "The address is invalid!")
-        
-        stringified2 = json.dumps(command2)
-        
-        re = requests.post(url=self.nodeURL,data=stringified2,headers=headers)
-        jsonData2 = json.loads(re.content)
-        for item in jsonData2['trytes']:
-            trytes = item
-            tryteString = TryteString(trytes)
-            message = tryteString.decode(errors='ignore', strip_padding=False)
-            head= message.split(';')
+        findTrytes = json.dumps(tryteCommand)
+        requestTrytes = requests.post(url=self.nodeURL,data=findTrytes,headers=headers)
+        jsonDataTrytes = json.loads(requestTrytes.content)
+        for item in jsonDataTrytes['trytes']:
+            tryteString = TryteString(item).decode(errors='ignore', strip_padding=False)
+            head = tryteString.split(';')
             content = head[0].split(',')
-            #print(self.initialTime)
-            t = datetime.datetime.now()
-            s = t.strftime("%d-%m-%Y")
-            for i in content:
-                wow = i
-                #print(wow+" WOW")
-                #print (str(content)+" Content")
-                if wow == s:
-                    print(str(content))
+            for data in content:
+                if data == todayCheck:
+                    if datetime.datetime.strptime(content[3],'%H:%M:%S') >= datetime.datetime.strptime(initialTime,'%H:%M:%S'):
+                        self.displayIncoming(content[0], content[1])
+
+                        
+    def displayIncoming(self, row, col):
+        mark = 'X'
+        logEntry = 'A projectile has hit '+row+col+"!\n"
+        self.updateLog(logEntry)
+        self.setOwnFleetDict(row,col,mark)
+        
         
     def saveConnectionSettings(self):
-#         if self.nodeURLEntry.get()!='':
-#             self.nodeURL = self.nodeURLEntry.get()
-#         else: 
-#             print('nix')
-#             return
+        if len(self.targetAddressEntry.get())>0:
+            self.targetAddress= self.targetAddressEntry.get()
+            print (self.targetAddress)
+        else: 
+            print('nix')
+            print (self.targetAddress)
+        
         if len(self.addressEntry.get())>0:
             self.address = self.addressEntry.get()
             print (self.address)
         else: 
             print('nix')
             print (self.address)
-            return
+        if len(self.nodeURLEntry.get())>0:
+            self.nodeURL = self.nodeURLEntry.get()
+        else: 
+            print('nix')
             
         
     def click(self,event):
@@ -181,22 +190,19 @@ class Toplevel1:
     def fleetClick(self,row,col):
         while self.shipCount > 0:
             self.shipCount -=1
+            mark = 'S'
             logEntry='You have placed a ship at '+row+col+'. '+str(self.shipCount)+' ships remain.\n'
-            self.Log.configure(state='normal')
-            self.Log.insert(tk.INSERT, logEntry)
-            self.Log.configure(state='disabled')
-            self.setOwnFleetDict(row,col)
+            self.updateLog(logEntry)
+            self.setOwnFleetDict(row,col,mark)
             return
         else:
-            logEntry='You have no ships left to place. \n'
-            self.Log.configure(state='normal')
-            self.Log.insert(tk.INSERT, logEntry)
-            self.Log.configure(state='disabled')
+            logEntry='You have no ships left to place.\n'
+            self.updateLog(logEntry)
             return
         
         
-    def setOwnFleetDict(self,row,col):
-        self.fleetDict[row][col]='S'
+    def setOwnFleetDict(self,row,col,mark):
+        self.fleetDict[row][col]=mark
         self.iniFleet()
         
         
@@ -221,9 +227,7 @@ class Toplevel1:
         row = self.targetRow
         col = str(self.targetCol)
         logEntry='Preparing to fire at '+row+col+'!\n'
-        self.Log.configure(state='normal')
-        self.Log.insert(tk.INSERT, logEntry)
-        self.Log.configure(state='disabled')
+        self.updateLog(logEntry)
         time.sleep(1)
         self.prepareShot(row,col)
     
@@ -240,9 +244,7 @@ class Toplevel1:
         except  Exception as e:
             print("Error preparing TX")
             logEntry=str(e)+' Transaction could not be created.\n'
-            self.Log.configure(state='normal')
-            self.Log.insert(tk.INSERT, logEntry)
-            self.Log.configure(state='disabled')
+            self.updateLog(logEntry)
         
         
     def sendTransaction(self,targetAddress,content,api,row,col):
@@ -254,26 +256,20 @@ class Toplevel1:
             value = 0,)
             api.send_transfer([transaction])
             logEntry=str(transaction)+'\n'
-            self.Log.configure(state='normal')
-            self.Log.insert(tk.INSERT, logEntry)
-            self.Log.configure(state='disabled')
+            self.updateLog(logEntry)
             messagebox.showinfo("Success!", "You have fired at the enemy!")
             self.shotFired(row,col)
         except Exception as e:
             print("Error sending TX")
             print(e)
             logEntry=str(e)+' Transaction could not be created.\n'
-            self.Log.configure(state='normal')
-            self.Log.insert(tk.INSERT, logEntry)
-            self.Log.configure(state='disabled')
+            self.updateLog(logEntry)
 
             
     def shotFired(self, row, col):
         self.setEnemyFleetDict(row, col)
         logEntry='Awaiting hit confirmation.\n'
-        self.Log.configure(state='normal')
-        self.Log.insert(tk.INSERT, logEntry)
-        self.Log.configure(state='disabled')
+        self.updateLog(logEntry)
     
     
     tkFont = ["Arial", 18]
@@ -637,7 +633,7 @@ class Toplevel1:
         self.Address.configure(foreground="#000000")
         self.Address.configure(text='''Address''')
 
-        self.Save = tk.Button(self.TNotebook1_t2)
+        self.Save = tk.Button(self.TNotebook1_t2, command=self.saveConnectionSettings)
         self.Save.place(relx=0.563, rely=0.241, height=54, width=117)
         self.Save.configure(activebackground="#ececec")
         self.Save.configure(activeforeground="#000000")
