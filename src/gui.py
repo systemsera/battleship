@@ -62,7 +62,7 @@ class Toplevel1:
     #Ab hier fängt die eigentliche GUI Logik an!
     
     nodeURL = 'https://nodes.thetangle.org:443'
-    targetAddress ='HQHF9PZJJVWZPOXHIHYULTECHZEDEVIZEWVRYGWCUNQPHLLPKNXAZU9GMS9QQEXNIJVQ9KHBXOUJOS9Q9'
+    targetAddress =''
     fleetAddress =''
     entered = False
     enteredEnemy = False
@@ -70,6 +70,8 @@ class Toplevel1:
     targetCol = ''
     shipCount = 5
     initialTime =''
+    incomingTime = []
+    session = 1
 
     #Enter und Exit checken, ob die Maus im Enemy Fleet Frame ist. Ansonsten wird auch der Mouseclick im OurFleet Frame übernommen.
     
@@ -103,12 +105,12 @@ class Toplevel1:
     def checkStatus(self):
         today = datetime.datetime.now()
         todayCheck = today.strftime("%d-%m-%Y")
-        initialTime = self.initialTime
+        initialTime = self.initialTime        
         logEntry='Checking for incoming missiles...\n'
         self.updateLog(logEntry)
         txCommand = {
           "command": "findTransactions",
-          "addresses": [self.addressEntry.get()]
+          "addresses": [self.fleetAddress]
         }
         findTx = json.dumps(txCommand)
         headers = {
@@ -134,35 +136,39 @@ class Toplevel1:
             for data in content:
                 if data == todayCheck:
                     if datetime.datetime.strptime(content[3],'%H:%M:%S') >= datetime.datetime.strptime(initialTime,'%H:%M:%S'):
-                        self.displayIncoming(content[0], content[1])
+                        self.incomingTime.append(content[3])
+                        if len(self.incomingTime) > 1:
+                            if len(set(self.incomingTime)) == self.session:
+                                if datetime.datetime.strptime(content[3],'%H:%M:%S') == datetime.datetime.strptime(max(set(self.incomingTime)),'%H:%M:%S'):
+                                    self.session+=1
+                                    self.displayIncoming(content[0], content[1])
+                                    break
+                        else:
+                            self.session+=1
+                            self.displayIncoming(content[0], content[1])
 
                         
     def displayIncoming(self, row, col):
-        mark = 'X'
-        logEntry = 'A projectile has hit '+row+col+"!\n"
-        self.updateLog(logEntry)
-        self.setOwnFleetDict(row,col,mark)
+        if self.fleetDict[row][col] == 'S':
+            mark = 'X'
+            logEntry = 'A projectile has struck '+row+col+'!\n'
+            self.updateLog(logEntry)
+            self.setOwnFleetDict(row,col,mark)
+        else:
+            mark = 'o'
+            logEntry = 'A projectile has dropped into the ocean at '+row+col+'.\n'
+            self.updateLog(logEntry)
+            self.setOwnFleetDict(row,col,mark)
         
         
     def saveConnectionSettings(self):
         if len(self.targetAddressEntry.get())>0:
             self.targetAddress= self.targetAddressEntry.get()
-            print (self.targetAddress)
-        else: 
-            print('nix')
-            print (self.targetAddress)
-        
         if len(self.addressEntry.get())>0:
-            self.address = self.addressEntry.get()
-            print (self.address)
-        else: 
-            print('nix')
-            print (self.address)
+            self.fleetAddress = self.addressEntry.get()
         if len(self.nodeURLEntry.get())>0:
             self.nodeURL = self.nodeURLEntry.get()
-        else: 
-            print('nix')
-            
+
         
     def click(self,event):
         try:
@@ -223,12 +229,8 @@ class Toplevel1:
         
         
     def fire(self):
-        time.sleep(1)
         row = self.targetRow
         col = str(self.targetCol)
-        logEntry='Preparing to fire at '+row+col+'!\n'
-        self.updateLog(logEntry)
-        time.sleep(1)
         self.prepareShot(row,col)
     
 
@@ -257,7 +259,7 @@ class Toplevel1:
             api.send_transfer([transaction])
             logEntry=str(transaction)+'\n'
             self.updateLog(logEntry)
-            messagebox.showinfo("Success!", "You have fired at the enemy!")
+            messagebox.showinfo("Success!", "Boom, wa?")
             self.shotFired(row,col)
         except Exception as e:
             print("Error sending TX")
@@ -267,9 +269,9 @@ class Toplevel1:
 
             
     def shotFired(self, row, col):
-        self.setEnemyFleetDict(row, col)
-        logEntry='Awaiting hit confirmation.\n'
+        logEntry='You fired at '+row+col+'!\n'
         self.updateLog(logEntry)
+        self.setEnemyFleetDict(row, col)
     
     
     tkFont = ["Arial", 18]
@@ -356,7 +358,7 @@ class Toplevel1:
         top.minsize(120, 1)
         top.maxsize(5764, 1061)
         top.resizable(1, 1)
-        top.title("BattleShip v0.5")
+        top.title("BattleShip v0.9")
         top.configure(background="#d9d9d9")
         top.configure(highlightbackground="#404040")
         top.configure(highlightcolor="black")
