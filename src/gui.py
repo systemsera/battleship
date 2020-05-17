@@ -100,12 +100,13 @@ class Toplevel1:
         self.Log.configure(state='normal')
         self.Log.insert(tk.INSERT, logEntry)
         self.Log.configure(state='disabled')
+        self.Log.see("end")
         
         
     def checkStatus(self):
         today = datetime.datetime.now()
         todayCheck = today.strftime("%d-%m-%Y")
-        initialTime = self.initialTime        
+        initialTime = self.initialTime
         logEntry='Checking for incoming missiles...\n'
         self.updateLog(logEntry)
         txCommand = {
@@ -259,7 +260,7 @@ class Toplevel1:
             api.send_transfer([transaction])
             logEntry=str(transaction)+'\n'
             self.updateLog(logEntry)
-            messagebox.showinfo("Success!", "Boom, wa?")
+            messagebox.showinfo("Success!", "wow")
             self.shotFired(row,col)
         except Exception as e:
             print("Error sending TX")
