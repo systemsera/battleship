@@ -1,4 +1,4 @@
-# battleship v0.5
+# battleship v0.9
 a tkinter(-table) based program that lets you play battleship using a distributed ledger (IOTA Tangle) as its data transfer backend
 
 In order to play battleship you and your opponent will each need an IOTA address.
