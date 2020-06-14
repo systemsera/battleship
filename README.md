@@ -1,4 +1,4 @@
-# battleship v0.9
+# battleship v1.0
 a tkinter(-table) based program that lets you play battleship using a distributed ledger (IOTA Tangle) as its data transfer backend
 
 In order to play battleship you and your opponent will each need an IOTA address.
@@ -18,6 +18,6 @@ Game start:
 5) Once you and your enemy have both fired a shot, you can check incoming enemy projectiles by clicking the Check-button. An incoming projectile will be market on your fleet table.
 
 
-A lower-case 'o' signifies a drop into the ocean, while a capital 'X' will be drawn onto the table if it is a direct hit. Since the program cannot yet update your or your enemies' enemy fleet table, you'll have to use other means to communicate whether or not his projectile successfully hit a ship.
+A lower-case 'o' signifies a drop into the ocean, while a capital 'X' will be drawn onto the table if it is a direct hit.
 
-This current build (0.9) is a code example of how to transfer data to the IOTA network as well as fetching data from it based on the initial address of the transaction, decoding trytes back into intelligible binary / ASCII and passing it to tkintertable.
+This current build (1.0) is a code example of how to transfer data to the IOTA network as well as fetching data from it based on the initial address of the transaction, decoding trytes back into intelligible binary / ASCII and passing it to tkintertable.

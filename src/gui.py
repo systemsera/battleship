@@ -14,6 +14,7 @@ import time
 import datetime
 import requests
 from pandas.tseries.offsets import Hour
+from _sqlite3 import Row
 
 try:
     import Tkinter as tk
@@ -61,7 +62,7 @@ class Toplevel1:
     
     #Ab hier fängt die eigentliche GUI Logik an!
     
-    nodeURL = 'https://nodes.thetangle.org:443'
+    nodeURL = 'https://wasp.servebeer.com:14267'#'https://nodes.thetangle.org:443'
     targetAddress =''
     fleetAddress =''
     entered = False
@@ -72,6 +73,9 @@ class Toplevel1:
     initialTime =''
     incomingTime = []
     session = 1
+    hitResponse = ''
+    hitRow = ''
+    hitCol = ''
 
     #Enter und Exit checken, ob die Maus im Enemy Fleet Frame ist. Ansonsten wird auch der Mouseclick im OurFleet Frame übernommen.
     
@@ -143,6 +147,7 @@ class Toplevel1:
                                 if datetime.datetime.strptime(content[3],'%H:%M:%S') == datetime.datetime.strptime(max(set(self.incomingTime)),'%H:%M:%S'):
                                     self.session+=1
                                     self.displayIncoming(content[0], content[1])
+                                    self.displayHitResponse(content[4], content[5], content[6])
                                     break
                         else:
                             self.session+=1
@@ -152,14 +157,30 @@ class Toplevel1:
     def displayIncoming(self, row, col):
         if self.fleetDict[row][col] == 'S':
             mark = 'X'
-            logEntry = 'A projectile has struck '+row+col+'!\n'
+            logEntry = 'An enemy projectile has struck your ship at '+row+col+'!\n'
             self.updateLog(logEntry)
             self.setOwnFleetDict(row,col,mark)
+            self.setHitDict(row, col, mark)
         else:
             mark = 'o'
-            logEntry = 'A projectile has dropped into the ocean at '+row+col+'.\n'
+            logEntry = 'An enemy projectile has dropped into the ocean at '+row+col+'.\n'
             self.updateLog(logEntry)
             self.setOwnFleetDict(row,col,mark)
+            self.setHitDict(row, col, mark)
+            
+            
+    def displayHitResponse(self, row, col, mark):
+        print(row+col+mark)
+        if mark == 'X':
+            logEntry = 'Your projectile fired at '+row+col+' has hit an enemy ship! \n'
+            self.updateLog(logEntry)
+            self.setEnemyFleetDict(row,col,mark)
+        elif mark == 'o':
+            logEntry = 'Your projectile has dropped into the ocean at '+row+col+'.\n'
+            self.updateLog(logEntry)
+            self.setEnemyFleetDict(row,col,mark)
+        else:
+            return
         
         
     def saveConnectionSettings(self):
@@ -213,10 +234,16 @@ class Toplevel1:
         self.iniFleet()
         
         
-    def setEnemyFleetDict(self,row,col):
-        self.enemyFleetDict[row][col]='O'
+    def setEnemyFleetDict(self,row,col,mark):
+        self.enemyFleetDict[row][col]=mark
         self.iniEnemyFleet()
-                
+        
+        
+    def setHitDict(self,row,col,mark):
+        self.hitDict[row][col]='O'
+        self.hitRow = row
+        self.hitCol = col
+        self.hitResponse = mark
                 
     def lockTarget(self,row,col):
         self.ACoordinates.configure(state='normal')
@@ -242,7 +269,11 @@ class Toplevel1:
             api = Iota(self.nodeURL)
             closing = ';'
             fireTime = self.timer()
-            content = str(row+","+col+","+fireTime+closing)
+            hitRow = self.hitRow
+            hitCol = self.hitCol
+            hitResponse = self.hitResponse
+            content = str(row+","+col+","+fireTime+","+hitRow+","+hitCol+","+hitResponse+closing)
+            print(content)
             self.sendTransaction(targetAddress,content,api,row,col)
         except  Exception as e:
             print("Error preparing TX")
@@ -258,9 +289,6 @@ class Toplevel1:
             tag = Tag(b'NODE9TEST'),
             value = 0,)
             api.send_transfer([transaction])
-            logEntry=str(transaction)+'\n'
-            self.updateLog(logEntry)
-            messagebox.showinfo("Success!", "wow")
             self.shotFired(row,col)
         except Exception as e:
             print("Error sending TX")
@@ -270,9 +298,10 @@ class Toplevel1:
 
             
     def shotFired(self, row, col):
+        mark = 'O'
         logEntry='You fired at '+row+col+'!\n'
         self.updateLog(logEntry)
-        self.setEnemyFleetDict(row, col)
+        self.setEnemyFleetDict(row, col, mark)
     
     
     tkFont = ["Arial", 18]
@@ -288,6 +317,11 @@ class Toplevel1:
                   '4':{'A':'','B':'','C':'','D':'','E':'',},
                   '5':{'A':'','B':'','C':'','D':'','E':'',}}
     
+    hitDict={'1':{'A':'','B':'','C':'','D':'','E':'',},
+                  '2':{'A':'','B':'','C':'','D':'','E':'',},
+                  '3':{'A':'','B':'','C':'','D':'','E':'',},
+                  '4':{'A':'','B':'','C':'','D':'','E':'',},
+                  '5':{'A':'','B':'','C':'','D':'','E':'',}}
     
     def iniFleet(self):
         self.model = TableModel()
